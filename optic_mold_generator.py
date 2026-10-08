@@ -20,10 +20,10 @@ the creases between petals), so the scale is chosen to give every wall at least
 MIN_DRAFT_DEG.
 
 Run:
-    ./optic_molds.py            # build every pattern
-    ./optic_molds.py star rib   # build only these
+    ./optic_mold_generator.py            # build every pattern
+    ./optic_mold_generator.py star rib   # build only these
 
-Outputs go to ./mold-designs/ as <pattern>.step and <pattern>.stl, plus a cost report
+Outputs go to ./mold-designs/optic/ as <pattern>.step and <pattern>.stl, plus a cost report
 on stdout: bar stock to buy, metal removed, and how hard the cavity is to machine.
 """
 
@@ -83,7 +83,7 @@ FACING_ALLOWANCE = 3.0  # extra bar length to face both ends flat
 # Density in g/cm^3 (6061 aluminum), for the stock weight in the report.
 MATERIALS = {"aluminum": 2.70}
 
-OUT_DIR = Path(__file__).parent / "mold-designs"
+OUT_DIR = Path(__file__).parent / "mold-designs" / "optic"
 
 
 # --- Cross-sections at the cavity floor -----------------------------------------

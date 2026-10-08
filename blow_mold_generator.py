@@ -9,9 +9,9 @@
 
 """Parametric two-part hinged blow mold for glass, built with build123d.
 Edit the parameters below, then run:
-    ./blow_mold.py
+    ./blow_mold_generator.py
 
-Outputs go to ./mold-designs/:
+Outputs go to ./mold-designs/blow/:
     glass_piece.step   the finished glass shape (reference)
     mold_half_a.step   mold half on the -Y side of the parting plane
     mold_half_b.step   mold half on the +Y side of the parting plane
@@ -82,7 +82,7 @@ DOWEL_CLEARANCE = 0.05     # added to the diameter
 DOWEL_DEPTH = 10.0         # per half
 DOWEL_HEIGHTS = (0.25, 0.75)  # fractions of mold height
 
-OUT_DIR = Path(__file__).parent / "mold-designs"
+OUT_DIR = Path(__file__).parent / "mold-designs" / "blow"
 
 
 def check_profile(spline, z0, z1, samples=2000):
@@ -188,7 +188,7 @@ def build():
 
 if __name__ == "__main__":
     glass, half_a, half_b = build()
-    OUT_DIR.mkdir(exist_ok=True)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     for name, part in (
         ("glass_piece", glass),
         ("mold_half_a", half_a),
