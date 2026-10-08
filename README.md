@@ -27,10 +27,23 @@ The only thing to install is [uv](https://docs.astral.sh/uv/). Each script decla
 ./segmented_mold_generator.py
 ```
 
+There is also a [just](https://just.systems/) file, so you don't have to remember the script names:
+
+```sh
+just                 # list the recipes
+just all             # whatever is out of date: the molds, then the README pictures
+just pineapple       # one generator: optic, blow, pineapple or segmented
+just optic star rib  # only these optic patterns
+just previews        # the README pictures
+just force=true all  # everything, whether it is out of date or not
+```
+
+A generator is skipped when its files are newer than its script. Right after a fresh clone the file times mean nothing, so use `force=true` if you want to be sure.
+
 - **Changing a design:** every script starts with a block of named settings in millimetres, each with a comment. Edit them and run the script again.
 - **The report:** each run prints the sizes, weights, stock to buy, and the results of its checks. Read it before ordering; it warns when a setting makes a part that can't be machined or assembled.
 - **Viewer:** the scripts finish by sending the parts to the [OCP CAD Viewer](https://github.com/bernhard-42/vscode-ocp-cad-viewer) for VS Code. Without the viewer running they print a connection error at the very end. The files are already written by then, so it can be ignored.
-- **Pictures:** `./render_previews.py` redraws the images in this README from the generated STL files.
+- **Pictures:** `./render_previews.py` redraws the images in this README from the generated STL files. `just all` does this after the molds.
 
 ## Insert mold
 
