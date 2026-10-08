@@ -53,7 +53,7 @@ The pattern is not cut into the mold body. It is on four identical loose inserts
 | Pineapple | `inserts/pineapple.step` | 14 rows of 16 diamond pyramids with small flat tips, about 3 to 9 mm deep, leaning into a spiral | A grid of dimples; gather over them to trap bubbles | 3 |
 | Rings | `inserts/rings.step` | 11 V-shaped rings, 12 mm apart and 5 mm deep | Grooves round the piece | 2 |
 | Spiral ribs | `inserts/spiral.step` | 16 ribs turning 120° from floor to rim | A swirl optic without twisting by hand | 2 |
-| Hobnail | `inserts/hobnail.step` | 192 round pockets, 6 to 12.7 mm across | Rows of raised beads; blow into the mold to fill them | 2 |
+| Hobnail | `inserts/hobnail.step` | 160 round pockets, 9 to 12.7 mm across; those on a seam are half in each insert | Rows of raised beads; blow into the mold to fill them | 2 |
 | Sparse spikes | `inserts/spikes.step` | 56 cones, 7 mm tall | A few deep pits, for deliberate air-trap bubbles | 4 |
 
 Make four of whichever set you want. "Cutter directions" is how many angles the cutter has to come from to reach the whole pattern: square-on to the insert's inside face, then turned to each side or tipped toward the floor. On a machine with a rotary axis these are index positions in one setup; on a plain 3-axis mill each is a separate tilted setup. The script works this out by line of sight and prints the share of the surface reached.

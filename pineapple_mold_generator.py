@@ -253,6 +253,12 @@ HOBNAIL_FILL = 0.8         # pocket width as a share of the spacing between pock
 # straight off the beads and is cut square-on; deeper pockets near the seams hook
 # behind the beads, and need the cutter turned to each side.
 HOBNAIL_DEPTH = 0.35
+# The staggered rows put a pocket on every seam between inserts. True cuts those
+# half into each insert, so the pattern runs unbroken round the glass, but each
+# insert then has half-pockets running out to a sharp edge down both sides, and
+# the two halves of a bead only line up as well as the inserts seat. False
+# leaves those pockets out, which gives a plain stripe at each seam instead.
+HOBNAIL_SPLIT_ON_SEAMS = True
 HOBNAIL_TOOL_DIRECTIONS_DEG = ((0, 0), (0, 50))
 
 # --- Sparse spike inserts -------------------------------------------------------
@@ -513,11 +519,10 @@ def seat_radius(z):
     return BOTTOM_RADIUS + INSERT_WALL + z * CONE_SLOPE
 
 
-def build_insert(cavity, pockets=(), bosses=()):
+def build_insert(cavity, bosses=()):
     """The insert on the +X side. The others are the same part, turned.
 
-    `pockets` are extra solids to cut into the wall behind the cavity, and
-    `bosses` are solids to add standing on it.
+    `bosses` are solids to add standing on the wall.
     """
     if INSERT_WALL < 3:
         raise ValueError("The inserts are under 3 mm thick. Raise SOLID_WALL.")
@@ -527,8 +532,6 @@ def build_insert(cavity, pockets=(), bosses=()):
         seat_radius(INSERT_FLOOR_GAP), seat_radius(CAVITY_DEPTH), height, align=low
     )
     shell -= cavity
-    if pockets:
-        shell -= list(pockets)
     if bosses:
         shell += list(bosses)
         # Bosses at the floor and the rim stick out past the ends; trim them off.
@@ -907,8 +910,21 @@ def hobnail_pockets():
         radius = HOBNAIL_FILL * spacing / 2
         if along + radius > WALL_LENGTH:
             return pockets
+        # Leave out rows that would run off the bottom of the inserts.
+        if wall_at(along - radius)[1] < INSERT_FLOOR_GAP + 0.5:
+            along += 0.866 * spacing
+            row += 1
+            continue
         for i in range(HOBNAIL_PER_ROW):
-            spot, inward = wall_spot(along, (i + 0.5 * (row % 2)) * 360 / HOBNAIL_PER_ROW)
+            # Even rows sit either side of the seams between inserts. Odd rows
+            # are staggered, which puts a pocket on every seam.
+            angle = (i + 0.5 * ((row + 1) % 2)) * 360 / HOBNAIL_PER_ROW
+            seam = 360 / INSERT_COUNT
+            off_seam = math.radians(abs(angle % seam - seam / 2))
+            on_seam = wall_at(along)[0] * math.sin(off_seam) < 1.15 * radius
+            if on_seam and not HOBNAIL_SPLIT_ON_SEAMS:
+                continue
+            spot, inward = wall_spot(along, angle)
             pockets.append((spot, inward, radius))
         along += 0.866 * spacing
         row += 1
@@ -921,28 +937,49 @@ def pocket_ball(radius):
     return ball, ball - depth
 
 
-def build_hobnail_pockets():
-    """One cutting solid per pocket: the cap of its ball that goes into the wall."""
-    solids = []
+def build_hobnail_insert():
+    """A bare insert with its pockets cut one at a time, each cut checked.
+
+    Cutting a round pocket into the middle of the smooth wall sometimes silently
+    does nothing. So each pocket is cut on its own, measured, and tried again a
+    few hundredths of a millimetre deeper or shallower until it takes.
+    """
+    insert = build_insert(plain_cavity())
+    half_sector = math.pi / INSERT_COUNT
     for spot, inward, radius in hobnail_pockets():
+        # Only the pockets that reach this insert. One on a seam is cut half into
+        # this insert and half into its neighbor.
+        off_center = abs(math.atan2(spot[1], spot[0]))
+        spread = math.asin(min(1.0, 1.2 * radius / math.hypot(spot[0], spot[1])))
+        if off_center > half_sector + spread:
+            continue
+        whole = off_center < half_sector - spread
         ball, inset = pocket_ball(radius)
-        # Keep only the cap of the ball that goes into the wall, so that
-        # neighboring cutters don't overlap; cutting with overlapping balls comes
-        # out wrong. The cap faces along -X, which also keeps the ball's seam and
-        # poles out of the cut, and is then turned to point out through the wall.
-        # It starts half a millimetre inside the wall. Where the wall curves in
-        # toward a cap's edges, the cap's flat end just grazes it and leaves a
-        # sliver of flat beside the pocket. Starting further in removes those,
-        # but then the cut comes out wrong, which the full-ring check catches.
-        start = 0.5 - inset
+        depth = HOBNAIL_DEPTH * radius
+        # The cutter is the part of the ball from well inside the cavity outward,
+        # so that only its rounded end touches the wall. It faces along -X, which
+        # keeps the ball's seam and poles out of the cut, and is then turned to
+        # point out through the wall.
+        start = 0.35 * radius - inset
         slab = Pos((start - ball - 1) / 2, 0, 0) * Box(start + ball + 1, 2 * ball + 2, 2 * ball + 2)
-        plug = Sphere(ball) & slab
+        cutter = Sphere(ball) & slab
         tilt = math.degrees(math.acos(max(-1.0, min(1.0, inward[2]))))
         bearing = math.degrees(math.atan2(inward[1], inward[0]))
-        solids.append(
-            Pos(*(spot + inward * inset)) * Rot(0, 0, bearing) * Rot(0, tilt - 90, 0) * plug
-        )
-    return solids
+        turn = Rot(0, 0, bearing) * Rot(0, tilt - 90, 0)
+        # What a pocket this size removes from a flat wall; a curved one loses more.
+        expected = math.pi * depth**2 * (3 * ball - depth) / 3
+        before = insert.volume
+        for nudge in (0, 0.02, -0.02, 0.05, -0.05, 0.1, -0.1, 0.2):
+            trial = insert - Pos(*(spot + inward * (inset + nudge))) * turn * cutter
+            least = 0.7 if whole else 0.25
+            if len(trial.solids()) == 1 and least * expected < before - trial.volume < 2 * expected:
+                insert = trial
+                break
+        else:
+            raise ValueError(f"The hobnail pocket {spot[2]:.0f} mm up could not be cut.")
+    if not insert.is_valid:
+        raise ValueError("The hobnail insert came out as a faulty solid.")
+    return insert.solid()
 
 
 def hobnail_facets(around=8, across=3):
@@ -1309,7 +1346,7 @@ def main():
          f"{SPIRAL_RIBS} ribs turning {SPIRAL_TURN_DEG:g} deg, "
          f"{SPIRAL_DEPTH * 2 * TOP_RADIUS * math.sin(math.pi / SPIRAL_RIBS):.1f} mm deep at the rim",
          sideways_reach(*spiral_facets(), SPIRAL_TOOL_DIRECTIONS_DEG), SPIRAL_TOOL_DIRECTIONS_DEG),
-        ("hobnail", build_insert(plain_cavity(), build_hobnail_pockets()),
+        ("hobnail", build_hobnail_insert(),
          f"{len(pockets)} pockets {min(beads):.1f} -> {max(beads):.1f} mm across and "
          f"{HOBNAIL_DEPTH * min(beads) / 2:.1f} -> {HOBNAIL_DEPTH * max(beads) / 2:.1f} mm deep",
          sideways_reach(*hobnail_facets(), HOBNAIL_TOOL_DIRECTIONS_DEG), HOBNAIL_TOOL_DIRECTIONS_DEG),
